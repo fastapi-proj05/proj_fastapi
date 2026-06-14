@@ -18,6 +18,17 @@ class PatientService:
     @staticmethod
     async def create_patient(db: AsyncSession, payload: PatientCreate) -> Patient:
         # REQ-PTNT-001: 환자 정보 등록
+        from fastapi import HTTPException, status
+        
+        # 전화번호 중복 체크
+        result = await db.execute(select(Patient).where(Patient.phone == payload.phone))
+        existing = result.scalar_one_or_none()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 등록된 전화번호의 환자가 존재합니다."
+            )
+
         new_patient = Patient(
             name=payload.name,
             age=payload.age,

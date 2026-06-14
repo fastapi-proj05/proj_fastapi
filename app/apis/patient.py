@@ -100,8 +100,9 @@ async def delete_patient(
 
 from sqlalchemy import select
 from app.models.record import MedicalRecord
+from app.schemas.record import PatientMedicalRecordResponse
 
-@router.get("/{patient_id}/medical-records", status_code=status.HTTP_200_OK)
+@router.get("/{patient_id}/medical-records", response_model=List[PatientMedicalRecordResponse], status_code=status.HTTP_200_OK)
 async def get_patient_medical_records(patient_id: int, db: AsyncSession = Depends(async_get_db)):
     result = await db.execute(select(MedicalRecord).where(MedicalRecord.patient_id == patient_id))
     records = result.scalars().all()

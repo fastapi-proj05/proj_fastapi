@@ -167,7 +167,15 @@ const pages = {
         document.getElementById('created-at').innerText = new Date(record.created_at).toLocaleString();
         document.getElementById('xray-img').src = record.xray_image_url;
         
-        document.getElementById('predict-btn').onclick = () => this.handlePredict(recordId);
+        const predictBtn = document.getElementById('predict-btn');
+        if (analyses.length > 0) {
+            predictBtn.disabled = true;
+            predictBtn.innerText = '예측 완료';
+            predictBtn.style.opacity = '0.6';
+            predictBtn.style.cursor = 'not-allowed';
+        } else {
+            predictBtn.onclick = () => this.handlePredict(recordId);
+        }
         document.getElementById('back-to-patient-btn').onclick = () => navigate(`/patients/${record.patient_id}`);
         
         const analysisList = document.getElementById('analysis-list');

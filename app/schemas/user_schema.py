@@ -166,6 +166,11 @@ class UserResponse(BaseModel):
     def phone_number(self) -> str:
         return self.phone
 
+    @computed_field
+    @property
+    def is_active(self) -> bool:
+        return self.role != RoleEnum.PENDING
+
 
 class TokenResponse(BaseModel):
     access_token: str

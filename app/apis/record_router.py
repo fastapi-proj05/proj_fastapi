@@ -1,6 +1,8 @@
 import os
+import json
 import uuid
 import shutil
+import asyncio
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
@@ -10,22 +12,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.db.databases import async_get_db
+from app.core.redis_client import get_redis
 from app.models.record import MedicalRecord
 from app.schemas.record import MedicalRecordDetail
-from worker.inference import run_prediction
 
 router = APIRouter(prefix="/api/v1/medical-records", tags=["Medical Records"])
-
-# ... (keep UPLOAD_DIR and validation helpers as is)
-# We will target replace_file_content for the route specifically so we do not mess up helpers.
-# Wait, let's replace the import at the top first, then replace the route.
-# Actually, let's just do a single replacement from line 12 to 143.
-
 
 UPLOAD_DIR = Path("static/uploads/xray")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".dcm"}
+
+TASK_QUEUE = "pneumonia_task_queue"
+PROCESSING_QUEUE = "pneumonia_processing_queue"
+
+# 임시 메모리 저장소
+mock_analyses = {}
+
 
 def _validate_image(file: UploadFile) -> None:
     ext = Path(file.filename).suffix.lower()
@@ -48,6 +51,7 @@ def _image_url(request: Request, path: str) -> str:
         return ""
     filename = Path(path).name
     return f"{request.base_url}static/uploads/xray/{filename}"
+
 
 @router.post("", response_model=MedicalRecordDetail, status_code=status.HTTP_201_CREATED)
 async def create_medical_record(
@@ -81,6 +85,7 @@ async def create_medical_record(
         updated_at=new_record.updated_at
     )
 
+
 @router.get("/{record_id}", response_model=MedicalRecordDetail)
 async def get_medical_record(
     record_id: int,
@@ -105,17 +110,13 @@ async def get_medical_record(
         updated_at=record.updated_at
     )
 
-# --- AI Prediction Mock Endpoints ---
-
-# 임시 메모리 저장소 (재시작 시 초기화됨)
-mock_analyses = {}
 
 @router.post("/{record_id}/predict")
 async def predict_pneumonia(
     record_id: int,
     db: AsyncSession = Depends(async_get_db)
 ):
-    # 레코드 존재 여부 체크
+    # 레코드 존재 여부 확인
     result = await db.execute(select(MedicalRecord).where(MedicalRecord.id == record_id))
     record = result.scalar_one_or_none()
     if not record:
@@ -124,51 +125,63 @@ async def predict_pneumonia(
             detail="진료기록을 찾을 수 없습니다."
         )
 
-    # 이미 예측한 결과가 있으면 반환 (RFP 캐싱 요건 충족)
+    # 같은 진료기록으로 이미 예측한 결과가 있으면 DB 캐시 반환
     if record_id in mock_analyses:
         return mock_analyses[record_id][-1]
 
-    import asyncio
-    try:
-        # run_prediction은 CPU 연산 및 파일 I/O를 포함하므로 비동기 이벤트 루프를 막지 않게 스레드 풀에서 돌림
-        is_pneumonia, confidence, model_name = await asyncio.to_thread(
-            run_prediction, record.xray_image_path, "FastViT-SA12"
-        )
-        model_display_name = f"{model_name} (Version 1.2)"
-    except (FileNotFoundError, RuntimeError) as e:
-        # .pth 파일이 없을 경우 (깃허브 업로드 제외 등) 에러를 내지 않고 플레이스홀더 랜덤 값으로 폴백
-        print(f"⚠️ [AI Fallback] 모델 파일이 없거나 로드에 실패하여 플레이스홀더 데이터를 사용합니다. 상세 에러: {e}")
-        import random
-        is_pneumonia = random.choice([True, False])
-        confidence = round(random.uniform(75.0, 98.5), 1)
-        model_display_name = "FastViT-SA12 (Version 1.2 - Placeholder)"
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI 모델 추론 도중 오류가 발생했습니다: {str(e)}"
-        )
-    
-    analysis = {
-        "id": len(mock_analyses.get(record_id, [])) + 1,
-        "is_pneumonia": is_pneumonia,
-        "confidence": confidence,
-        "hitmap_image_url": "",
-        "created_at": datetime.utcnow().isoformat(),
-        "ai_model": model_display_name
+    # Redis에 작업 등록
+    r = await get_redis()
+    task = {
+        "record_id": record_id,
+        "image_path": record.xray_image_path,
+        "model_key": "FastViT-SA12"
     }
-    
-    if record_id not in mock_analyses:
-        mock_analyses[record_id] = []
-    mock_analyses[record_id].append(analysis)
-    
-    return analysis
+    await r.lpush(TASK_QUEUE, json.dumps(task))
+
+    # 결과 Subscribe (최대 30초 대기)
+    pubsub = r.pubsub()
+    channel = f"prediction_result:{record_id}"
+    await pubsub.subscribe(channel)
+
+    try:
+        for _ in range(300):  # 0.1초 * 300 = 30초
+            message = await pubsub.get_message(ignore_subscribe_messages=True)
+            if message:
+                result_data = json.loads(message["data"])
+                if result_data.get("status") == "error":
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=result_data.get("error")
+                    )
+
+                analysis = {
+                    "id": len(mock_analyses.get(record_id, [])) + 1,
+                    "is_pneumonia": result_data["is_pneumonia"],
+                    "confidence": result_data["confidence"],
+                    "hitmap_image_url": "",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "ai_model": result_data["model_key"]
+                }
+                if record_id not in mock_analyses:
+                    mock_analyses[record_id] = []
+                mock_analyses[record_id].append(analysis)
+                return analysis
+
+            await asyncio.sleep(0.1)
+    finally:
+        await pubsub.unsubscribe(channel)
+
+    raise HTTPException(
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        detail="AI 추론 타임아웃 (30초 초과)"
+    )
+
 
 @router.get("/{record_id}/analyses")
 async def get_medical_record_analyses(
     record_id: int,
     db: AsyncSession = Depends(async_get_db)
 ):
-    # 레코드 존재 여부 체크
     result = await db.execute(select(MedicalRecord).where(MedicalRecord.id == record_id))
     record = result.scalar_one_or_none()
     if not record:
@@ -176,5 +189,5 @@ async def get_medical_record_analyses(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="진료기록을 찾을 수 없습니다."
         )
-        
+
     return mock_analyses.get(record_id, [])

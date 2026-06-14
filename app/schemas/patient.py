@@ -1,7 +1,7 @@
 # app/schemas/patient.py
 from datetime import datetime
 from typing import Any, List, Optional
-from pydantic import BaseModel, Field, field_validator, model_validator, computed_field
+from pydantic import BaseModel, Field, field_validator, model_validator, computed_field, field_serializer
 import re
 from app.models.patient import GenderEnum
 
@@ -68,6 +68,10 @@ class PatientListResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
 
+    @field_serializer("gender")
+    def serialize_gender(self, gender: GenderEnum) -> str:
+        return "male" if gender == GenderEnum.MALE else "female"
+
     @computed_field
     @property
     def phone_number(self) -> str:
@@ -82,6 +86,10 @@ class PatientDetailResponse(BaseModel):
     gender: GenderEnum
     phone: str
     age: int
+
+    @field_serializer("gender")
+    def serialize_gender(self, gender: GenderEnum) -> str:
+        return "male" if gender == GenderEnum.MALE else "female"
 
     @computed_field
     @property

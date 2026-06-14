@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     DB_PORT: str = "3306"
     DB_NAME: str = "ai_health"
 
+    # Redis 설정 추가
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

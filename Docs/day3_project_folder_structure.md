@@ -9,51 +9,99 @@ Step 2. DB 모델 작성 및 마이그레이션
 """
 
 # ==================================================
+
 # Step 1. 프로젝트 구조 분석
+
 # ==================================================
 
+## 프로젝트 전체 구조
+
+```bash
+AH_health_web_development_assignment
+├── README.md
+├── alembic/
+│   ├── README.md
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+├── alembic.ini
+├── app/
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   └── db/
+│   │       ├── __init__.py
+│   │       ├── databases.py
+│   │       └── models.py
+│   ├── apis/
+│   ├── models/
+│   ├── repositories/
+│   ├── schemas/
+│   ├── services/
+│   ├── media/
+│   ├── static/
+│   ├── templates/
+│   │   └── index.html
+│   ├── main.py
+│   └── Dockerfile
+├──
+├── docs/
+├── .env
+├── pyproject.toml
+└── uv.lock
+```
+
 PROJECT_STRUCTURE = {
-    "app/core": """
+"app/core": """
 프로젝트 전역 설정 및 인프라 관리
 
 주요 역할
+
 - 환경 변수(.env) 관리
 - 데이터베이스 연결 설정
 - 공통 보안(JWT)
 - 설정 객체 관리
 
 주요 파일
+
 - config.py
 - db/databases.py
-""",
+  """,
 
-    "app/models": """
-SQLAlchemy ORM 모델 정의
+      "app/models": """
+
+  SQLAlchemy ORM 모델 정의
 
 주요 역할
+
 - DB 테이블 구조 정의
 - 관계(Relationship) 정의
 - Base 상속 모델 작성
 
 예시
+
 - user.py
 - patient.py
 - health_record.py
-""",
+  """,
 
-    "app/schemas": """
-Pydantic 기반 데이터 검증 계층
+      "app/schemas": """
+
+  Pydantic 기반 데이터 검증 계층
 
 주요 역할
+
 - Request 검증
 - Response 직렬화
 - DTO(Data Transfer Object) 정의
-""",
+  """,
 
-    "app/repositories": """
-데이터 접근 계층(DAL)
+      "app/repositories": """
+
+  데이터 접근 계층(DAL)
 
 주요 역할
+
 - CRUD 처리
 - SQL 실행
 - DB 조회 및 저장
@@ -62,75 +110,91 @@ Pydantic 기반 데이터 검증 계층
 """,
 
     "app/services": """
+
 비즈니스 로직 계층
 
 주요 역할
+
 - 회원가입
 - 로그인
 - 권한 검사
 - 트랜잭션 처리
 - Repository 조합
-""",
+  """,
 
-    "app/apis": """
-HTTP API 계층
+      "app/apis": """
+
+  HTTP API 계층
 
 주요 역할
+
 - URL 라우팅
 - 요청 수신
 - Service 호출
 - 응답 반환
-"""
-}
+  """
+  }
 
 # ==================================================
+
 # Step 1-2. 주요 파일 역할
+
 # ==================================================
 
 FILES_DESCRIPTION = {
-    "app/main.py": """
+"app/main.py": """
 애플리케이션 진입점
 
 주요 역할
+
 - FastAPI 객체 생성
 - Router 등록
 - Middleware 등록
 - Exception Handler 등록
-""",
+  """,
 
-    "app/core/config.py": """
-환경 변수 관리자
+      "app/core/config.py": """
+
+  환경 변수 관리자
 
 주요 역할
+
 - .env 로드
 - DATABASE_URL 관리
 - JWT 설정 관리
 - 전역 settings 객체 제공
-""",
+  """,
 
-    "pyproject.toml": """
-프로젝트 의존성 및 메타데이터 관리
+      "pyproject.toml": """
+
+  프로젝트 의존성 및 메타데이터 관리
 
 주요 역할
+
 - 프로젝트 정보 관리
 - 패키지 의존성 관리
 - 개발 도구 설정
-""",
+  """,
 
-    "uv.lock": """
-패키지 버전 잠금 파일
+      "uv.lock": """
+
+  패키지 버전 잠금 파일
 
 주요 역할
+
 - 동일한 개발 환경 유지
 - 의존성 버전 고정
 
 주의
+
 - 직접 수정 금지
-"""
-}
+  """
+  }
 
 # ==================================================
+
 # Step 2. 데이터베이스 연결 설정
+
 # ==================================================
 
 DATABASE_SETTING = """
@@ -154,66 +218,73 @@ from sqlalchemy.orm import declarative_base
 ENGINE = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=ENGINE
+autocommit=False,
+autoflush=False,
+bind=ENGINE
 )
 
 Base = declarative_base()
 """
 
 # ==================================================
+
 # Step 2-1. SQLAlchemy 모델 작성
+
 # ==================================================
 
 MODEL_EXAMPLE = """
+
 # app/models/user.py
 
 from sqlalchemy import Column, Integer, String
 from app.core.db.databases import Base
 
 class User(Base):
-    __tablename__ = "users"
+**tablename** = "users"
 
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True)
     name = Column(String(100))
+
 """
 
 # ==================================================
+
 # Step 2-2. Alembic 마이그레이션
+
 # ==================================================
 
 ALEMBIC_GUIDE = """
+
 1. 모델 작성
 
 app/models/user.py
 
-------------------------------------------------
+---
 
-2. __init__.py 등록
+2. **init**.py 등록
 
 from app.models.user import User
 
-------------------------------------------------
+---
 
 3. 마이그레이션 생성
 
 uv run alembic revision --autogenerate -m "create users table"
 
-------------------------------------------------
+---
 
 4. DB 반영
 
 uv run alembic upgrade head
 
-------------------------------------------------
+---
 
 5. 롤백
 
 uv run alembic downgrade -1
 
-------------------------------------------------
+---
 
 6. DB 확인
 
@@ -223,53 +294,59 @@ TablePlus
 """
 
 # ==================================================
+
 # API 처리 흐름
+
 # ==================================================
 
 API_FLOW = """
 Client Request
-        ↓
+↓
 API Layer (app/apis)
-        ↓
+↓
 Schema Validation (app/schemas)
-        ↓
+↓
 Service Layer (app/services)
-        ↓
+↓
 Repository Layer (app/repositories)
-        ↓
+↓
 Model Layer (app/models)
-        ↓
+↓
 Database
-        ↓
+↓
 JSON Response
 """
 
 # ==================================================
+
 # 계층별 책임
+
 # ==================================================
 
 LAYER_ROLE = {
-    "API": "URL 매핑, 요청 수신, 응답 반환",
-    "Schema": "데이터 검증 및 직렬화",
-    "Service": "비즈니스 로직 처리",
-    "Repository": "DB CRUD 수행",
-    "Model": "DB 테이블 구조 정의"
+"API": "URL 매핑, 요청 수신, 응답 반환",
+"Schema": "데이터 검증 및 직렬화",
+"Service": "비즈니스 로직 처리",
+"Repository": "DB CRUD 수행",
+"Model": "DB 테이블 구조 정의"
 }
 
 # ==================================================
+
 # 제출 체크리스트
+
 # ==================================================
 
 CHECK_LIST = [
-    "프로젝트 구조 분석 완료",
-    "ORM 모델 작성 완료",
-    "Alembic Migration 생성 완료",
-    "Database 반영 완료",
-    "DB Viewer 확인 완료",
-    "docs 작성 완료",
-    "Pull Request 생성",
-    "팀원 승인 완료",
-    "main/develop 브랜치 Merge 완료"
+"프로젝트 구조 분석 완료",
+"ORM 모델 작성 완료",
+"Alembic Migration 생성 완료",
+"Database 반영 완료",
+"DB Viewer 확인 완료",
+"docs 작성 완료",
+"Pull Request 생성",
+"팀원 승인 완료",
+"main/develop 브랜치 Merge 완료"
 ]
 
 print("3일차 프로젝트 구조 분석 및 DB 마이그레이션 정리 완료")

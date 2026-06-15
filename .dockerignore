@@ -1,0 +1,38 @@
+# 환경변수
+.env
+.env.*
+
+# 파이썬 캐시
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# 라이브러리 캐시
+.venv/
+.mypy_cache/
+.ruff_cache/
+
+# 도커 관련
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# 문서
+Docs/
+docs/
+README.md
+*.md
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# 테스트
+test/
+tests/

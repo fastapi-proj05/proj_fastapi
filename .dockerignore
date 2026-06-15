@@ -1,3 +1,4 @@
+
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -25,7 +26,5 @@ envs/
 .*
 _*
 *.pth
-
-# Don't ignore the .gitignore file itself
-!.gitignore
-!.dockerignore
+*.pyc
+.git

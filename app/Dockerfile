@@ -1,4 +1,10 @@
-FROM python:3.13-slim
+# ==========================================
+# 1단계: 빌드 스테이지
+# ==========================================
+FROM python:3.13-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -9,11 +15,19 @@ WORKDIR /app
 RUN pip install uv
 
 COPY pyproject.toml uv.lock ./
+RUN uv venv /app/.venv && \
+    uv pip install --no-cache --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r pyproject.toml
 
-RUN uv sync --frozen --no-dev
+# ==========================================
+# 2단계: 런타임 스테이지
+# ==========================================
+FROM python:3.13-slim
+WORKDIR /app
 
 COPY . .
 
-EXPOSE 8000
+# [핵심 교정] 그 후, 빌드 스테이지에서 완성된 '순수 Linux 가상환경'을 덮어씌워 호스트 오염을 완전 차단
+COPY --from=builder /app/.venv /app/.venv
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app

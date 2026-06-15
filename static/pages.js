@@ -169,10 +169,9 @@ const pages = {
         
         const predictBtn = document.getElementById('predict-btn');
         if (analyses.length > 0) {
-            predictBtn.disabled = true;
-            predictBtn.innerText = '예측 완료';
-            predictBtn.style.opacity = '0.6';
-            predictBtn.style.cursor = 'not-allowed';
+            predictBtn.onclick = () => {
+                utils.showAlert('이미 예측결과가 존재합니다.', 'warning');
+            };
         } else {
             predictBtn.onclick = () => this.handlePredict(recordId);
         }

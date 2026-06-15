@@ -16,6 +16,8 @@ services:
     environment:
       - DB_HOST=mysql
       - DB_PORT=3306
+      - REDIS_HOST=redis
+      - PYTHONUNBUFFERED=1
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthcheck', timeout=5).getcode()"]
       interval: 5s
@@ -44,11 +46,13 @@ services:
     volumes:
       - .:/app
       - /app/.venv
+      - static_volume:/app/static
     env_file:
       - .env
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - PYTHONUNBUFFERED=1
     depends_on:
       redis:
         condition: service_healthy

@@ -10,6 +10,9 @@ class MedicalRecordDetail(BaseModel):
     chart_number: str
     symptoms: str
     xray_image_url: str
+    is_pneumonia: Optional[bool] = None
+    confidence: Optional[float] = None
+    ai_model: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

@@ -126,8 +126,18 @@ async def predict_pneumonia(
         )
 
     # 같은 진료기록으로 이미 예측한 결과가 있으면 DB 캐시 반환
-    if record_id in mock_analyses:
-        return mock_analyses[record_id][-1]
+    if record.is_pneumonia is not None:
+        print(f"[DB Cache Hit] 이미 예측된 진료기록입니다. DB 캐시 결과를 즉시 반환합니다. - record_id: {record_id}")
+        return [
+            {
+                "id": 1,
+                "is_pneumonia": record.is_pneumonia,
+                "confidence": record.confidence,
+                "hitmap_image_url": "",
+                "created_at": record.updated_at.isoformat() if record.updated_at else record.created_at.isoformat(),
+                "ai_model": record.ai_model or "FastViT-SA12"
+            }
+        ]
 
     # Redis에 작업 등록
     r = await get_redis()
@@ -154,17 +164,23 @@ async def predict_pneumonia(
                         detail=result_data.get("error")
                     )
 
+                # DB에 예측결과 영구 저장
+                record.is_pneumonia = result_data["is_pneumonia"]
+                record.confidence = result_data["confidence"]
+                record.ai_model = result_data["model_key"]
+                record.updated_at = datetime.utcnow()
+                db.add(record)
+                await db.commit()
+                await db.refresh(record)
+
                 analysis = {
-                    "id": len(mock_analyses.get(record_id, [])) + 1,
-                    "is_pneumonia": result_data["is_pneumonia"],
-                    "confidence": result_data["confidence"],
+                    "id": 1,
+                    "is_pneumonia": record.is_pneumonia,
+                    "confidence": record.confidence,
                     "hitmap_image_url": "",
-                    "created_at": datetime.utcnow().isoformat(),
-                    "ai_model": result_data["model_key"]
+                    "created_at": record.updated_at.isoformat(),
+                    "ai_model": record.ai_model
                 }
-                if record_id not in mock_analyses:
-                    mock_analyses[record_id] = []
-                mock_analyses[record_id].append(analysis)
                 return analysis
 
             await asyncio.sleep(0.1)
@@ -190,4 +206,15 @@ async def get_medical_record_analyses(
             detail="진료기록을 찾을 수 없습니다."
         )
 
-    return mock_analyses.get(record_id, [])
+    if record.is_pneumonia is not None:
+        return [
+            {
+                "id": 1,
+                "is_pneumonia": record.is_pneumonia,
+                "confidence": record.confidence,
+                "hitmap_image_url": "",
+                "created_at": record.updated_at.isoformat() if record.updated_at else record.created_at.isoformat(),
+                "ai_model": record.ai_model or "FastViT-SA12"
+            }
+        ]
+    return []

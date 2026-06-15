@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Column, BigInteger, String, Text, DateTime, ForeignKey
+import sqlalchemy as sa
 
 from app.core.db.databases import Base
 from app.core.db.models import UUIDMixin, TimestampMixin
@@ -15,6 +16,9 @@ class MedicalRecord(Base, UUIDMixin, TimestampMixin):
     chart_number = Column(String(50), nullable=False, unique=True)
     symptoms = Column(Text, nullable=False)
     xray_image_path = Column(String(255), nullable=True)
+    is_pneumonia = Column(sa.Boolean, nullable=True)
+    confidence = Column(sa.Float, nullable=True)
+    ai_model = Column(sa.String(50), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
 

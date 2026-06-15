@@ -49,7 +49,7 @@
 
 ```
 main
- ├── feature/user-api       # 사용자 관리 API
+ ├── feature/user           # 사용자 관리 API
  ├── feature/patient        # 환자 관리 API
  ├── feature/record         # 진료기록 API
  ├── feature/docker         # Docker 설정
